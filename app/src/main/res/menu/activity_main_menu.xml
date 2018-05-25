@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_main_item_queue"
+        android:icon="@drawable/ic_queue"
+        android:showAsAction="ifRoom"
+        android:title="@string/queue_text" />
+    <item
+        android:id="@+id/menu_main_item_settings"
+        android:title="@string/settings_text" />
+    <item
+        android:id="@+id/menu_main_item_about_me"
+        android:title="@string/about_me_text" />
+</menu>
