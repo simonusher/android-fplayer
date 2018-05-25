@@ -317,6 +317,8 @@ object MusicPlayer {
                     null
                 }
             }
+            Log.d("PREVIOUS_INDEX", iterator.previousIndex().toString())
+            Log.d("NEXT_INDEX", iterator.nextIndex().toString())
             return currentTrack
         }
 
@@ -337,6 +339,8 @@ object MusicPlayer {
                     }
                 }
             }
+            Log.d("PREVIOUS_INDEX", iterator.previousIndex().toString())
+            Log.d("NEXT_INDEX", iterator.nextIndex().toString())
             return currentTrack
         }
 

@@ -70,6 +70,7 @@ class FPlayerService: Service(), TrackUpdateListener {
                 .addAction(R.drawable.ic_next, "Next", pendingIntent3)
                 .setContentTitle(lastNotificationTrack.title)
                 .setContentText(lastNotificationTrack.author)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setStyle(MediaStyle())
 
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
@@ -101,6 +102,7 @@ class FPlayerService: Service(), TrackUpdateListener {
                 .setContentTitle(track.title)
                 .setContentText(track.author)
                 .setStyle(MediaStyle())
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
     }
