@@ -13,18 +13,18 @@ import s235040.wozniak.fplayer.Controllers.TrackAdapter
 import s235040.wozniak.fplayer.Playback.MusicPlayer
 import s235040.wozniak.fplayer.R
 import kotlinx.android.synthetic.main.activity_main.*
-import s235040.wozniak.fplayer.Application.FPlayerApplication
 import s235040.wozniak.fplayer.Application.FPlayerService
 import android.content.ServiceConnection
 import android.os.IBinder
+import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
+import s235040.wozniak.fplayer.Playback.Track
 
 
-class MainActivity : Activity(){
+class MainActivity : Activity(), TrackUpdateListener{
     private lateinit var recyclerView: RecyclerView
     private lateinit var viewAdapter: RecyclerView.Adapter<*>
     private lateinit var viewManager: RecyclerView.LayoutManager
     val musicPlayer: MusicPlayer = MusicPlayer
-    val application = FPlayerApplication()
     val serviceConnection: ServiceConnection = MyServiceConnection()
     var isConnectedToService = false
     lateinit var service: FPlayerService
@@ -36,11 +36,10 @@ class MainActivity : Activity(){
 
         override fun onServiceConnected(componentName: ComponentName, binder: IBinder) {
             service = (binder as FPlayerService.LocalBinder).service
-            application.musicPlayerService = service
             initializeTrackList()
+            bindToMusicPlayer()
             isConnectedToService = true
         }
-
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,14 +97,23 @@ class MainActivity : Activity(){
         })
     }
 
-    override fun onStart() {
-        super.onStart()
+    override fun onResume() {
+        super.onResume()
         bindToService()
     }
 
-    override fun onStop() {
-        super.onStop()
+    private fun bindToMusicPlayer() {
+        MusicPlayer.addTrackUpdateListener(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
         unbindFromService()
+        unbindFromMusicPlayer()
+    }
+
+    private fun unbindFromMusicPlayer() {
+        MusicPlayer.removeTrackUpdateListener(this)
     }
 
     private fun bindToService() {
@@ -120,7 +128,7 @@ class MainActivity : Activity(){
     }
 
     private fun initializeTrackList() {
-        viewAdapter = TrackAdapter(musicPlayer.trackList, service::playTrack)
+        viewAdapter = TrackAdapter(musicPlayer.trackList, service::handlePlaySongButton)
         viewManager = LinearLayoutManager(this)
         recyclerView = findViewById<RecyclerView>(R.id.activity_main_rv_track_list).apply {
             // use this setting to improve performance if you know that changes
@@ -174,5 +182,39 @@ class MainActivity : Activity(){
     private fun showAboutMe() {
         val aboutMeIntent = Intent(this, AboutMeActivity::class.java)
         startActivity(aboutMeIntent)
+    }
+
+    override fun notifyNowPlaying(listIndex: Int, track: Track) {
+        viewAdapter.notifyItemChanged(listIndex, true)
+        activity_main_btn_play.setImageResource(R.drawable.ic_pause)
+        fillTrackInfo(track)
+    }
+
+    private fun fillTrackInfo(track: Track) {
+        activity_main_tv_song_title.text = track.title
+        activity_main_tv_song_author.text = track.author
+        activity_main_tv_song_length.text = track.duration
+    }
+
+    override fun notifyPaused(listIndex: Int) {
+        viewAdapter.notifyItemChanged(listIndex, false)
+        activity_main_btn_play.setImageResource(R.drawable.ic_play)
+    }
+
+    override fun notifyPlaying(listIndex: Int) {
+        viewAdapter.notifyItemChanged(listIndex, true)
+        activity_main_btn_play.setImageResource(R.drawable.ic_pause)
+    }
+
+    override fun notifyStopped(listIndex: Int) {
+        viewAdapter.notifyItemChanged(listIndex, false)
+        clearTrackInfo()
+        activity_main_btn_play.setImageResource(R.drawable.ic_play)
+    }
+
+    private fun clearTrackInfo() {
+        activity_main_tv_song_title.text = ""
+        activity_main_tv_song_author.text = ""
+        activity_main_tv_song_length.text = ""
     }
 }

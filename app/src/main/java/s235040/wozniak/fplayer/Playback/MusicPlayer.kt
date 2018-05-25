@@ -3,6 +3,7 @@ package s235040.wozniak.fplayer.Playback
 import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
+import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
 
 
 /**
@@ -27,6 +28,7 @@ object MusicPlayer {
         ALL_TRACKS
     }
 
+    val myListeners: MutableList<TrackUpdateListener> = mutableListOf()
     val DEFAULT_FORWARD_TIME_SECONDS = 10
     val DEFAULT_REWIND_TIME_SECONDS = 3
 
@@ -37,7 +39,6 @@ object MusicPlayer {
     var playbackState: PlaybackState = PlaybackState.IDLE
     val trackList: MutableList<Track> = mutableListOf()
     var mediaPlayer: MediaPlayer = MediaPlayer()
-    val queue = TrackQueue()
     init {
         mediaPlayer.isLooping = false
     }
@@ -47,10 +48,11 @@ object MusicPlayer {
         randomShuffle = !randomShuffle
         when(playbackState){
             PlaybackState.PLAYING, PlaybackState.PAUSED -> {
-                val track = queue.getCurrentTrack()
-                queue.createPlaybackQueue(trackList.indexOf(track), false)
+                val track = TrackQueue.getCurrentTrack()
+                TrackQueue.createPlaybackQueue(trackList.indexOf(track))
             }
         }
+        Log.d("currentTrack", TrackQueue.getCurrentTrack().toString())
     }
 
     fun toggleLoopingType() {
@@ -59,21 +61,60 @@ object MusicPlayer {
             LoopingType.ALL_TRACKS -> LoopingType.ONE_TRACK
             LoopingType.ONE_TRACK -> LoopingType.NO_LOOPING
         }
+        if(loopingType == LoopingType.ONE_TRACK){
+            val track = TrackQueue.getCurrentTrack()
+            if (track != null){
+                TrackQueue.createPlaybackQueue(trackList.indexOf(track))
+            }
+        }
         when(playbackState){
             PlaybackState.PLAYING, PlaybackState.PAUSED -> {
-                val track = queue.getCurrentTrack()
-                queue.createPlaybackQueue(trackList.indexOf(track), false)
+                val track = TrackQueue.getCurrentTrack()
+                TrackQueue.createPlaybackQueue(trackList.indexOf(track))
             }
+        }
+        Log.d("currentTrack", TrackQueue.getCurrentTrack().toString())
+    }
+
+    fun handlePlaySongButton(index: Int) {
+        val currentTrack = TrackQueue.getCurrentTrack()
+        if(currentTrack != null){
+            val songIndex = trackList.indexOf(currentTrack)
+            if(songIndex == index){
+                playbackState = if(playbackState == PlaybackState.PLAYING){
+                    notifyAllPaused(songIndex)
+                    mediaPlayer.pause()
+                    PlaybackState.PAUSED
+                }
+                else {
+                    notifyAllNowPlaying(songIndex, currentTrack)
+                    mediaPlayer.start()
+                    PlaybackState.PLAYING
+                }
+            }
+            else{
+                playTrack(index)
+            }
+        } else {
+            playTrack(index)
         }
     }
 
     fun handlePlayButton() {
-        when(playbackState){
+        when (playbackState) {
             PlaybackState.PLAYING -> {
+                val track = TrackQueue.getCurrentTrack()
+                if(track != null){
+                    notifyAllPaused(trackList.indexOf(track))
+                }
                 mediaPlayer.pause()
                 playbackState = PlaybackState.PAUSED
             }
             PlaybackState.PAUSED -> {
+                val track = TrackQueue.getCurrentTrack()
+                if(track != null){
+                    notifyAllNowPlaying(trackList.indexOf(track), track)
+                }
                 mediaPlayer.start()
                 playbackState = PlaybackState.PLAYING
             }
@@ -117,15 +158,20 @@ object MusicPlayer {
 
 
     fun playTrack(index: Int) {
-        queue.createPlaybackQueue(index)
+        TrackQueue.createPlaybackQueue(index)
         playNextSong()
     }
 
     fun playNextSong() {
-        val track = queue.getNextTrack()
-        Log.d("track", track.toString())
-        playbackState = if(track != null){
-            startMediaPlayer(track)
+        val previousTrack = TrackQueue.getCurrentTrack()
+        if(previousTrack != null){
+            notifyStopped(trackList.indexOf(previousTrack))
+        }
+        val newTrack = TrackQueue.getNextTrack()
+        Log.d("track", newTrack.toString())
+        playbackState = if(newTrack != null){
+            notifyAllNowPlaying(trackList.indexOf(newTrack), newTrack)
+            startMediaPlayer(newTrack)
             PlaybackState.PLAYING
         } else {
             releaseMediaPlayer()
@@ -134,9 +180,14 @@ object MusicPlayer {
     }
 
     fun playPreviousSong() {
-        val track = queue.getPreviousTrack()
-        playbackState = if(track != null){
-            startMediaPlayer(track)
+        val previousTrack = TrackQueue.getCurrentTrack()
+        if(previousTrack != null){
+            notifyStopped(trackList.indexOf(previousTrack))
+        }
+        val newTrack = TrackQueue.getPreviousTrack()
+        playbackState = if(newTrack != null){
+            notifyAllNowPlaying(trackList.indexOf(newTrack), newTrack)
+            startMediaPlayer(newTrack)
             PlaybackState.PLAYING
         } else {
             releaseMediaPlayer()
@@ -196,87 +247,132 @@ object MusicPlayer {
         }
     }
 
+    fun addTrackUpdateListener(listener: TrackUpdateListener){
+        myListeners.add(listener)
+        if(playbackState == PlaybackState.PLAYING){
+            val currentTrack = TrackQueue.getCurrentTrack()
+            if(currentTrack != null){
+                val index = trackList.indexOf(currentTrack)
+                listener.notifyNowPlaying(index, currentTrack)
+                Log.d("REMOVED", listener.toString())
+            }
+        }
+    }
+
+    fun getCurrentlyPlayedSongIndex(): Int {
+        val track = TrackQueue.getCurrentTrack()
+        if(track != null){
+            val index = trackList.indexOf(track)
+            return index
+        }
+        return -1
+    }
+
+    fun removeTrackUpdateListener(listener: TrackUpdateListener){
+        myListeners.remove(listener)
+        Log.d("REMOVED", listener.toString())
+    }
+
+    fun notifyAll(action: (TrackUpdateListener) -> Unit){
+        myListeners.forEach(action)
+    }
+
+    fun notifyAllNowPlaying(listIndex: Int, track: Track){
+        notifyAll{ listener -> listener.notifyNowPlaying(listIndex, track) }
+    }
+
+    fun notifyAllPaused(listIndex: Int){
+        notifyAll { listener -> listener.notifyPaused(listIndex) }
+    }
+
+    fun notifyStopped(listIndex: Int){
+        notifyAll { listener -> listener.notifyStopped(listIndex) }
+    }
+
     //TRACK QUEUE OBJECT
-    class TrackQueue {
-        val INVALID_INDEX = -2
+    object TrackQueue {
         var playbackQueue: MutableList<Track> = mutableListOf()
-        var currentlyPlayedTrackIndex = -1
+        var iterator: ListIterator<Track> = playbackQueue.listIterator()
+        private var currentTrack: Track? = null
 
         fun getCurrentTrack(): Track? {
-            return if(currentlyPlayedTrackIndex != INVALID_INDEX && !isEmpty()){
-                playbackQueue[currentlyPlayedTrackIndex]
-            } else{
-                null
-            }
+            return currentTrack
         }
 
         fun getNextTrack(): Track? {
-            if(currentlyPlayedTrackIndex == INVALID_INDEX){
-                currentlyPlayedTrackIndex = -1
+            currentTrack = if(iterator.hasNext()){
+                iterator.next()
             }
-            when(loopingType){
-                LoopingType.ALL_TRACKS, LoopingType.NO_LOOPING -> {
-                    currentlyPlayedTrackIndex += 1
-                    if(currentlyPlayedTrackIndex >= playbackQueue.size){
-                        currentlyPlayedTrackIndex = if(loopingType == LoopingType.ALL_TRACKS){
-                            0
-                        } else {
-                            INVALID_INDEX
-                        }
+            else{
+                if(loopingType == LoopingType.ALL_TRACKS){
+                    createIterator()
+                    if(iterator.hasNext()){
+                        iterator.next()
+                    }
+                    else{
+                        null
                     }
                 }
+                else{
+                    null
+                }
             }
-            return if(currentlyPlayedTrackIndex != INVALID_INDEX && !isEmpty())
-                playbackQueue[currentlyPlayedTrackIndex] else null
+            return currentTrack
         }
 
         fun getPreviousTrack(): Track? {
-            when(loopingType){
-                LoopingType.ALL_TRACKS -> {
-                    currentlyPlayedTrackIndex -= 1
-                    if (currentlyPlayedTrackIndex < 0){
-                        currentlyPlayedTrackIndex = playbackQueue.size - 1
-                    }
+            currentTrack = if(iterator.hasPrevious()){
+                iterator.previous()
+            } else {
+                if(loopingType == LoopingType.ALL_TRACKS){
+                    createIterator(playbackQueue.size)
+                    iterator.previous()
                 }
-                LoopingType.NO_LOOPING -> {
-                    currentlyPlayedTrackIndex -= 1
-                    if (currentlyPlayedTrackIndex < 0){
-                        currentlyPlayedTrackIndex = 0
+                else{
+                    if(iterator.hasNext()){
+                        iterator.next()
+                    }
+                    else{
+                        null
                     }
                 }
             }
-            return if(!isEmpty()) playbackQueue[currentlyPlayedTrackIndex] else null
+            return currentTrack
         }
 
-        fun createPlaybackQueue(startIndex: Int, resetIndex: Boolean = true) {
-            if(randomShuffle){
+        fun createPlaybackQueue(startIndex: Int) {
+            if(loopingType == LoopingType.ONE_TRACK){
+                createOneTrackQueue(startIndex)
+                createIterator()
+            }
+            else if(randomShuffle){
                 shuffleQueue(startIndex)
-                if(resetIndex){
-                    resetTrackIndex()
-                }
             } else{
-                createNormalQueue(startIndex, resetIndex)
+                createNormalQueue(startIndex)
             }
             Log.d("playbackQueue: ", playbackQueue.toString())
         }
 
-        private fun createNormalQueue(startIndex: Int, resetIndex: Boolean = true) {
+        private fun createOneTrackQueue(startIndex: Int) {
             if(startIndex >=0 && startIndex < trackList.size){
-                playbackQueue = trackList.toMutableList()
-                if(resetIndex){
-                    currentlyPlayedTrackIndex = startIndex -1
-                }
-            } else {
+                playbackQueue = mutableListOf(trackList[startIndex])
+            } else if(!trackList.isEmpty()) {
                 throw IllegalArgumentException("Incorrect start index")
             }
         }
 
-        private fun resetTrackIndex() {
-            currentlyPlayedTrackIndex = -1
+        private fun createNormalQueue(startIndex: Int) {
+            if(startIndex >=0 && startIndex < trackList.size){
+                playbackQueue = trackList.toMutableList()
+                createIterator(startIndex)
+            } else if(!trackList.isEmpty()) {
+                throw IllegalArgumentException("Incorrect start index")
+            }
         }
 
         private fun shuffleQueue() {
             playbackQueue = trackList.shuffled() as MutableList<Track>
+            createIterator()
         }
 
         private fun shuffleQueue(startIndex: Int) {
@@ -285,11 +381,14 @@ object MusicPlayer {
                 val tempList = trackList.shuffled() as MutableList<Track>
                 tempList.swap(0, tempList.indexOf(firstTrack))
                 playbackQueue = tempList
-            } else {
+                createIterator()
+            } else if(!trackList.isEmpty()) {
                 throw IllegalArgumentException("Incorrect start index")
             }
         }
 
-        fun isEmpty(): Boolean = playbackQueue.isEmpty()
+        private fun createIterator(index: Int = 0) {
+            iterator = playbackQueue.listIterator(index)
+        }
     }
 }

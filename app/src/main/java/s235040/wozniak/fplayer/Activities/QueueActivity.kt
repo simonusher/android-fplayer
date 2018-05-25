@@ -19,7 +19,7 @@ class QueueActivity : Activity() {
     }
 
     private fun initQueue() {
-        viewAdapter = QueueAdapter(MusicPlayer.queue.playbackQueue)
+        viewAdapter = QueueAdapter(MusicPlayer.TrackQueue.playbackQueue)
         viewManager = LinearLayoutManager(this)
         recyclerView = findViewById<RecyclerView>(R.id.activity_queue_rv_queue).apply {
             // use this setting to improve performance if you know that changes

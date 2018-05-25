@@ -14,7 +14,8 @@
         <service android:name=".Application.FPlayerService">
 
         </service>
-        <activity android:name=".Activities.MainActivity">
+        <activity android:name=".Activities.MainActivity"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
