@@ -11,4 +11,5 @@
     <string name="channel_name">FPlayer Channel</string>
     <string name="channel_description">FPlayer main notification channel</string>
     <string name="channel_id">DEFAULT_CHANNEL</string>
+    <string name="intent_type">INTENT_TYPE</string>
 </resources>

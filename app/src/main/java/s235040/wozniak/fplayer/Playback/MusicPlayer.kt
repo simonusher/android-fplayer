@@ -53,7 +53,6 @@ object MusicPlayer {
             PlaybackState.PLAYING, PlaybackState.PAUSED -> {
                 val track = TrackQueue.getCurrentTrack()
                 TrackQueue.createPlaybackQueue(trackList.indexOf(track))
-                TrackQueue.iterator.dirty = false
             }
         }
         Log.d("currentTrack", TrackQueue.getCurrentTrack().toString())
@@ -65,20 +64,11 @@ object MusicPlayer {
             LoopingType.ALL_TRACKS -> LoopingType.ONE_TRACK
             LoopingType.ONE_TRACK -> LoopingType.NO_LOOPING
         }
-        if(loopingType == LoopingType.ONE_TRACK){
-            val track = TrackQueue.getCurrentTrack()
-            if (track != null){
-                TrackQueue.createPlaybackQueue(trackList.indexOf(track))
-                if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
-                    TrackQueue.iterator.dirty = false
-                }
-            }
-        }
+
         when(playbackState){
             PlaybackState.PLAYING, PlaybackState.PAUSED -> {
                 val track = TrackQueue.getCurrentTrack()
                 TrackQueue.createPlaybackQueue(trackList.indexOf(track))
-                TrackQueue.iterator.dirty = false
             }
         }
         Log.d("currentTrack", TrackQueue.getCurrentTrack().toString())
@@ -95,16 +85,36 @@ object MusicPlayer {
                     PlaybackState.PAUSED
                 }
                 else {
-                    notifyAllNowPlaying(songIndex, currentTrack)
+                    notifyAllNowPlaying(index, currentTrack)
                     mediaPlayer.start()
                     PlaybackState.PLAYING
                 }
             }
             else{
-                playTrack(index)
+                startPlaybackFrom(index)
             }
         } else {
-            playTrack(index)
+            startPlaybackFrom(index)
+        }
+    }
+
+    private fun startPlaybackFrom(index: Int) {
+        if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
+            val currentSong = TrackQueue.getCurrentTrack()
+            if(currentSong != null){
+                notifyStopped(index)
+            }
+        }
+        TrackQueue.createPlaybackQueue(index)
+        val firstTrack = TrackQueue.getCurrentTrack()
+        playbackState = if(firstTrack != null){
+            Log.d("FIRST TRACK", firstTrack.toString())
+            notifyAllNowPlaying(trackList.indexOf(firstTrack), firstTrack)
+            startMediaPlayer(firstTrack)
+            PlaybackState.PLAYING
+        } else {
+            releaseMediaPlayer()
+            PlaybackState.IDLE
         }
     }
 
@@ -127,7 +137,7 @@ object MusicPlayer {
                 playbackState = PlaybackState.PLAYING
             }
             PlaybackState.IDLE -> {
-                playTrack(0)
+                startPlaybackFrom(0)
             }
         }
     }
@@ -164,16 +174,10 @@ object MusicPlayer {
         }
     }
 
-
-    fun playTrack(index: Int) {
-        TrackQueue.createPlaybackQueue(index)
-        playNextSong()
-    }
-
     fun playNextSong() {
-        val previousTrack = TrackQueue.getCurrentTrack()
-        if(previousTrack != null){
-            notifyStopped(trackList.indexOf(previousTrack))
+        val currentTrack = TrackQueue.getCurrentTrack()
+        if(currentTrack != null){
+            notifyStopped(trackList.indexOf(currentTrack))
         }
         val newTrack = TrackQueue.getNextTrack()
         Log.d("track", newTrack.toString())
@@ -316,10 +320,13 @@ object MusicPlayer {
         }
 
         var playbackQueue: MutableList<Track> = mutableListOf()
-        var iterator: MyIterator<Track> = playbackQueue.standardIterator()
+        lateinit var iterator: MyIterator<Track>
 
         fun getCurrentTrack(): Track? {
-            return iterator.current()
+            if(this::iterator.isInitialized){
+                return iterator.current()
+            }
+            else return null
         }
 
         fun getNextTrack(): Track? {

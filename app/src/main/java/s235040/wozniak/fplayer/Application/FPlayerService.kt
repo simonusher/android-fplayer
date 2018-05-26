@@ -13,6 +13,9 @@ import android.app.PendingIntent
 import s235040.wozniak.fplayer.Activities.MainActivity
 import android.app.NotificationManager
 import android.app.NotificationChannel
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.os.Build
 import android.support.v4.app.NotificationManagerCompat
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
@@ -21,6 +24,14 @@ import s235040.wozniak.fplayer.R
 
 
 class FPlayerService: Service(), TrackUpdateListener {
+    val INTENT_TYPE_UNDEFINED = -1
+    val INTENT_TYPE_START_SERVICE = 0
+    val INTENT_TYPE_PLAY_PAUSE_SONG = 1
+    val INTENT_TYPE_PREVIOUS_SONG = 2
+    val INTENT_TYPE_NEXT_SONG = 3
+
+    val INTENT_TYPE_NAME = "INTENT_TYPE"
+
     val player: MusicPlayer = MusicPlayer
     val binder: IBinder = LocalBinder()
     val CHANNEL_ID = "DEFAULT_CHANNEL_ID"
@@ -28,6 +39,7 @@ class FPlayerService: Service(), TrackUpdateListener {
     lateinit var notificationManager: NotificationManager
     lateinit var notificationBuilder: NotificationCompat.Builder
     lateinit var lastNotificationTrack: Track
+
 
     inner class LocalBinder : Binder() {
         internal val service: FPlayerService
@@ -47,63 +59,73 @@ class FPlayerService: Service(), TrackUpdateListener {
     }
 
     private fun updateNotification(isPlaying: Boolean){
-        val intent1 = Intent(this, MainActivity::class.java)
-        intent1.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val intent2 = Intent(this, MainActivity::class.java)
-        intent2.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val intent3 = Intent(this, MainActivity::class.java)
-        intent3.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val pendingIntent1 = PendingIntent.getActivity(this, 0,
-                intent1, 0)
-        val pendingIntent2 = PendingIntent.getActivity(this, 1,
-                intent2, 0)
-        val pendingIntent3 = PendingIntent.getActivity(this, 2,
-                intent3, 0)
+        val (previousSongIntent, playPauseIntent, nextSongIntent) = createControlIntents()
         val icon = if(isPlaying) R.drawable.ic_pause else R.drawable.ic_play
         val btnTitle = if(isPlaying) "Pause" else "Play" //FIXME
+        val activityIntent = createActivityIntent()
         notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
         notificationBuilder
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSmallIcon(R.drawable.ic_music)
-                .addAction(R.drawable.ic_previous, "Previous", pendingIntent1)
-                .addAction(icon, btnTitle, pendingIntent2)
-                .addAction(R.drawable.ic_next, "Next", pendingIntent3)
+                .addAction(R.drawable.ic_previous, "Previous", previousSongIntent)
+                .addAction(icon, btnTitle, playPauseIntent)
+                .addAction(R.drawable.ic_next, "Next", nextSongIntent)
                 .setContentTitle(lastNotificationTrack.title)
                 .setContentText(lastNotificationTrack.author)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setStyle(MediaStyle())
+                .setContentIntent(activityIntent)
 
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
+
     }
 
+    private fun createControlIntents(): Triple<PendingIntent, PendingIntent, PendingIntent> {
+        val intentPlayPause = Intent(this, FPlayerService::class.java)
+        intentPlayPause.putExtra(INTENT_TYPE_NAME, INTENT_TYPE_PLAY_PAUSE_SONG)
+
+        val intentPreviousSong = Intent(this, FPlayerService::class.java)
+        intentPreviousSong.putExtra(INTENT_TYPE_NAME, INTENT_TYPE_PREVIOUS_SONG)
+        val intentNextSong = Intent(this, FPlayerService::class.java)
+        intentNextSong.putExtra(INTENT_TYPE_NAME, INTENT_TYPE_NEXT_SONG)
+
+        val pendingIntentPreviousSong =
+                PendingIntent.getService(this, INTENT_TYPE_PREVIOUS_SONG, intentPreviousSong, 0)
+        val pendingIntentPlayPause =
+                PendingIntent.getService(this, INTENT_TYPE_PLAY_PAUSE_SONG, intentPlayPause, 0)
+        val pendingIntentNextSong =
+                PendingIntent.getService(this, INTENT_TYPE_NEXT_SONG, intentNextSong, 0)
+
+        return Triple(pendingIntentPreviousSong, pendingIntentPlayPause, pendingIntentNextSong)
+    }
+
+    private fun createActivityIntent(): PendingIntent{
+        val notificationIntent = Intent(this, MainActivity::class.java)
+        notificationIntent.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pendingIntent = PendingIntent.getActivity(this, 0,
+                notificationIntent, 0)
+        return pendingIntent
+    }
+
+
     private fun updateNotification(track: Track, isPlaying: Boolean){
-        val intent1 = Intent(this, MainActivity::class.java)
-        intent1.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val intent2 = Intent(this, MainActivity::class.java)
-        intent2.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val intent3 = Intent(this, MainActivity::class.java)
-        intent3.flags = (Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val pendingIntent1 = PendingIntent.getActivity(this, 0,
-                intent1, 0)
-        val pendingIntent2 = PendingIntent.getActivity(this, 1,
-                intent2, 0)
-        val pendingIntent3 = PendingIntent.getActivity(this, 2,
-                intent3, 0)
+        val (previousSongIntent, playPauseIntent, nextSongIntent) = createControlIntents()
         val icon = if(isPlaying) R.drawable.ic_pause else R.drawable.ic_play
         val btnTitle = if(isPlaying) "Pause" else "Play" //FIXME
+        val activityIntent = createActivityIntent()
         lastNotificationTrack = track
         notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
         notificationBuilder
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSmallIcon(R.drawable.ic_music)
-                .addAction(R.drawable.ic_previous, "Previous", pendingIntent1)
-                .addAction(icon, btnTitle, pendingIntent2)
-                .addAction(R.drawable.ic_next, "Next", pendingIntent3)
+                .addAction(R.drawable.ic_previous, "Previous", previousSongIntent)
+                .addAction(icon, btnTitle, playPauseIntent)
+                .addAction(R.drawable.ic_next, "Next", nextSongIntent)
                 .setContentTitle(track.title)
                 .setContentText(track.author)
                 .setStyle(MediaStyle())
                 .setPriority(NotificationCompat.PRIORITY_LOW)
-                .build()
+                .setContentIntent(activityIntent)
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
     }
 
@@ -178,9 +200,29 @@ class FPlayerService: Service(), TrackUpdateListener {
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        Toast.makeText(this, "service starting", Toast.LENGTH_SHORT).show()
+        val intentType = intent.getIntExtra(INTENT_TYPE_NAME, INTENT_TYPE_UNDEFINED)
+        when(intentType){
+            INTENT_TYPE_PLAY_PAUSE_SONG -> {
+                handlePlayButton()
+            }
 
+            INTENT_TYPE_NEXT_SONG -> {
+                handleNextSongButton()
+            }
+
+            INTENT_TYPE_PREVIOUS_SONG -> {
+                handlePreviousSongButton()
+            }
+        }
         return START_NOT_STICKY
+    }
+
+    private fun handlePreviousSongButton() {
+        player.playPreviousSong()
+    }
+
+    private fun handleNextSongButton() {
+        player.playNextSong()
     }
 
     override fun onBind(intent: Intent): IBinder {

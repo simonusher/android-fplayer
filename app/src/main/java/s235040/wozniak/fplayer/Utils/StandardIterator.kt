@@ -1,13 +1,12 @@
 package s235040.wozniak.fplayer.Utils
 
-class StandardIterator<T>(val list:List<T>, var currentIndex: Int = 0): MyIterator<T>{
-    override var dirty: Boolean = true
+class StandardIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyIterator<T>{
     override fun hasCurrent(): Boolean {
         return currentIndex >= 0 && currentIndex < list.size
     }
 
     override fun current(): T?{
-        return if(hasCurrent() && !dirty){
+        return if(hasCurrent()){
             list[currentIndex]
         } else {
             null
@@ -20,21 +19,12 @@ class StandardIterator<T>(val list:List<T>, var currentIndex: Int = 0): MyIterat
     }
 
     override fun hasPrevious(): Boolean {
-        val newIndex = previousIndex()
-        return newIndex >= 0
+        return currentIndex >= 0
     }
 
     override fun next(): T {
-        if(dirty){
-            dirty = false
-            return current() as T
-        }
-        else if(hasNext()){
-            currentIndex += 1
-            return current() as T
-        } else {
-            throw IllegalStateException("No objects left to take")
-        }
+        currentIndex += 1
+        return list[currentIndex]
     }
 
     override fun nextIndex(): Int {
@@ -42,19 +32,20 @@ class StandardIterator<T>(val list:List<T>, var currentIndex: Int = 0): MyIterat
     }
 
     override fun previous(): T {
-        if(dirty){
-            dirty = false
-            return current() as T
+        currentIndex -= 1
+        if(currentIndex < 0){
+            currentIndex = 0
         }
-        else if(hasPrevious()){
-            currentIndex += 1
-            return current() as T
-        } else {
-            throw IllegalStateException("No objects left to take")
-        }
+        return list[currentIndex]
     }
 
     override fun previousIndex(): Int {
         return currentIndex - 1
+    }
+
+    companion object {
+        fun<T> fromEnd(list: MutableList<T>): StandardIterator<T>{
+            return StandardIterator(list, list.size)
+        }
     }
 }
