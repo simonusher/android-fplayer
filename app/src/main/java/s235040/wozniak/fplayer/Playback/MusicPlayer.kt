@@ -1,12 +1,19 @@
 package s235040.wozniak.fplayer.Playback
 
+import android.content.ContentUris
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.media.MediaPlayer
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
 import s235040.wozniak.fplayer.Utils.CyclicIterator
 import s235040.wozniak.fplayer.Utils.MyIterator
 import s235040.wozniak.fplayer.Utils.StandardIterator
+import java.io.FileDescriptor
+import android.provider.MediaStore
+
+
 
 
 /**
@@ -46,6 +53,13 @@ object MusicPlayer {
         mediaPlayer.isLooping = false
     }
 
+    fun getSongTimes(): Pair<Int, Int> {
+        return if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
+            Pair(mediaPlayer.currentPosition, mediaPlayer.duration)
+        } else {
+            Pair(-1, -1)
+        }
+    }
 
     fun toggleRandomShuffle(){
         randomShuffle = !randomShuffle
@@ -80,12 +94,12 @@ object MusicPlayer {
             val songIndex = trackList.indexOf(currentTrack)
             if(songIndex == index){
                 playbackState = if(playbackState == PlaybackState.PLAYING){
-                    notifyAllPaused(songIndex)
+                    notifyAllPaused(songIndex, currentTrack)
                     mediaPlayer.pause()
                     PlaybackState.PAUSED
                 }
                 else {
-                    notifyAllNowPlaying(index, currentTrack)
+                    notifyAllResumed(songIndex, currentTrack)
                     mediaPlayer.start()
                     PlaybackState.PLAYING
                 }
@@ -99,20 +113,30 @@ object MusicPlayer {
     }
 
     private fun startPlaybackFrom(index: Int) {
+        var currentSong: Track? = null
         if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
-            val currentSong = TrackQueue.getCurrentTrack()
-            if(currentSong != null){
-                notifyStopped(index)
-            }
+            currentSong = TrackQueue.getCurrentTrack()
         }
         TrackQueue.createPlaybackQueue(index)
         val firstTrack = TrackQueue.getCurrentTrack()
+        val firstTrackIndex = trackList.indexOf(firstTrack)
         playbackState = if(firstTrack != null){
             Log.d("FIRST TRACK", firstTrack.toString())
-            notifyAllNowPlaying(trackList.indexOf(firstTrack), firstTrack)
+            if(currentSong != null){
+                val oldListIndex = trackList.indexOf(currentSong)
+                notifyAllSwitchedSong(oldListIndex, firstTrackIndex, firstTrack)
+            } else {
+                notifyAllSwitchedSong(null, firstTrackIndex, firstTrack)
+            }
             startMediaPlayer(firstTrack)
             PlaybackState.PLAYING
         } else {
+            if (currentSong != null) {
+                val currentSongIndex = trackList.indexOf(currentSong)
+                notifyAllIdle(currentSongIndex)
+            } else {
+                notifyAllIdle()
+            }
             releaseMediaPlayer()
             PlaybackState.IDLE
         }
@@ -123,7 +147,8 @@ object MusicPlayer {
             PlaybackState.PLAYING -> {
                 val track = TrackQueue.getCurrentTrack()
                 if(track != null){
-                    notifyAllPaused(trackList.indexOf(track))
+                    val trackIndex = trackList.indexOf(track)
+                    notifyAllPaused(trackIndex, track)
                 }
                 mediaPlayer.pause()
                 playbackState = PlaybackState.PAUSED
@@ -131,7 +156,8 @@ object MusicPlayer {
             PlaybackState.PAUSED -> {
                 val track = TrackQueue.getCurrentTrack()
                 if(track != null){
-                    notifyAllNowPlaying(trackList.indexOf(track), track)
+                    val trackIndex = trackList.indexOf(track)
+                    notifyAllResumed(trackIndex, track)
                 }
                 mediaPlayer.start()
                 playbackState = PlaybackState.PLAYING
@@ -176,29 +202,47 @@ object MusicPlayer {
 
     fun playNextSong() {
         val currentTrack = TrackQueue.getCurrentTrack()
-        if(currentTrack != null){
-            notifyStopped(trackList.indexOf(currentTrack))
-        }
         val newTrack = TrackQueue.getNextTrack()
         Log.d("track", newTrack.toString())
-        playbackState = if(newTrack != null){
-            notifyAllNowPlaying(trackList.indexOf(newTrack), newTrack)
+        playbackState = if (newTrack != null) {
+            val newTrackIndex = trackList.indexOf(newTrack)
+            if (currentTrack != null) {
+                val currentTrackIndex = trackList.indexOf(currentTrack)
+                notifyAllSwitchedSong(currentTrackIndex, newTrackIndex, newTrack)
+            } else {
+                notifyAllSwitchedSong(null, newTrackIndex, newTrack)
+            }
             startMediaPlayer(newTrack)
             PlaybackState.PLAYING
         } else {
-            releaseMediaPlayer()
-            PlaybackState.IDLE
+            if(playbackState == PlaybackState.IDLE){
+                startPlaybackFrom(0)
+                PlaybackState.PLAYING
+            } else{
+                if (currentTrack != null) {
+                    val currentTrackIndex = trackList.indexOf(currentTrack)
+                    notifyAllIdle(currentTrackIndex)
+                } else {
+                    notifyAllIdle()
+                }
+                releaseMediaPlayer()
+                PlaybackState.IDLE
+            }
+
         }
     }
 
     fun playPreviousSong() {
         val previousTrack = TrackQueue.getCurrentTrack()
-        if(previousTrack != null){
-            notifyStopped(trackList.indexOf(previousTrack))
-        }
         val newTrack = TrackQueue.getPreviousTrack()
         playbackState = if(newTrack != null){
-            notifyAllNowPlaying(trackList.indexOf(newTrack), newTrack)
+            val newTrackIndex = trackList.indexOf(newTrack)
+            if(previousTrack != null){
+                val previousTrackIndex = trackList.indexOf(previousTrack)
+                notifyAllSwitchedSong(previousTrackIndex, newTrackIndex, newTrack)
+            } else{
+                notifyAllSwitchedSong(null, newTrackIndex, newTrack)
+            }
             startMediaPlayer(newTrack)
             PlaybackState.PLAYING
         } else {
@@ -227,7 +271,9 @@ object MusicPlayer {
     fun readTracks(context: Context){
         val contentResolver = context.contentResolver
         val uri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val cursor = contentResolver.query(uri, null, null, null, null)
+        val albumUri = android.provider.MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI
+        val cursor = contentResolver.query(uri, null, null, null, android.provider.MediaStore.Audio.Media.TITLE + " ASC")
+
         if (cursor == null) {
             println("QUERY FAILED")
         } else if (!cursor.moveToFirst()) {
@@ -237,12 +283,29 @@ object MusicPlayer {
             val authorColumn = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.ARTIST)
             val durationColumn = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.DURATION)
             val pathColumn = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.DATA)
+            val albumIdColumn = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.ALBUM_ID)
             do {
                 val thisTitle = cursor.getString(titleColumn)
                 val thisAuthor = cursor.getString(authorColumn)
                 val thisDuration = cursor.getInt(durationColumn)
                 val songPath = cursor.getString(pathColumn)
-                trackList += Track(songPath, thisTitle, thisAuthor, thisDuration)
+                val albumId = cursor.getString(albumIdColumn)
+                val projection = arrayOf(android.provider.MediaStore.Audio.Albums._ID, android.provider.MediaStore.Audio.Albums.ALBUM_ART)
+                val selection = arrayOf(albumId.toString())
+                val cursorAlbums = contentResolver.query(android.provider.MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI,
+                        projection,
+                        android.provider.MediaStore.Audio.Albums._ID+ "=?",
+                        selection,
+                        null)
+                var path = ""
+                if (cursorAlbums.moveToFirst()) {
+                    val columnIndex = cursorAlbums.getColumnIndex(android.provider.MediaStore.Audio.Albums.ALBUM_ART)
+                    path = cursorAlbums.getString(columnIndex)
+                    Log.d("ALBUM ART PATH", path)
+                }
+                cursorAlbums.close()
+
+                trackList += Track(songPath, thisTitle, thisAuthor, path, thisDuration)
             } while (cursor.moveToNext())
         }
         cursor.close()
@@ -256,17 +319,13 @@ object MusicPlayer {
         if(isPlaying()){
             mediaPlayer.stop()
             releaseMediaPlayer()
-        }
-    }
-
-    fun addTrackUpdateListener(listener: TrackUpdateListener){
-        myListeners.add(listener)
-        if(playbackState == PlaybackState.PLAYING){
-            val currentTrack = TrackQueue.getCurrentTrack()
-            if(currentTrack != null){
-                val index = trackList.indexOf(currentTrack)
-                listener.notifyNowPlaying(index, currentTrack)
-                Log.d("REMOVED", listener.toString())
+            playbackState = PlaybackState.IDLE
+            val index = getCurrentlyPlayedSongIndex()
+            if(index != -1){
+                notifyAllIdle(index)
+            }
+            else {
+                notifyAllIdle()
             }
         }
     }
@@ -280,6 +339,25 @@ object MusicPlayer {
         return -1
     }
 
+
+    fun addTrackUpdateListener(listener: TrackUpdateListener){
+        myListeners.add(listener)
+        if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
+            val currentTrack = TrackQueue.getCurrentTrack()
+            if(currentTrack != null){
+                val index = trackList.indexOf(currentTrack)
+                if(playbackState == PlaybackState.PLAYING){
+                    listener.notifyCurrentlyPlayedSong(index, currentTrack, true)
+                } else {
+                    listener.notifyCurrentlyPlayedSong(index, currentTrack, false)
+                }
+                Log.d("REMOVED", listener.toString())
+            }
+        } else {
+            listener.notifyIdle()
+        }
+    }
+
     fun removeTrackUpdateListener(listener: TrackUpdateListener){
         myListeners.remove(listener)
         Log.d("REMOVED", listener.toString())
@@ -289,16 +367,41 @@ object MusicPlayer {
         myListeners.forEach(action)
     }
 
-    fun notifyAllNowPlaying(listIndex: Int, track: Track){
-        notifyAll{ listener -> listener.notifyNowPlaying(listIndex, track) }
+
+
+    fun notifyAllSwitchedSong(oldListIndex: Int? = null, newListIndex: Int, newTrack: Track){
+        if(oldListIndex != null){
+            notifyAll { listener -> listener.notifySwitchedSong(oldListIndex, newListIndex, newTrack) }
+        } else {
+            notifyAll { listener -> listener.notifySwitchedSong(null, newListIndex, newTrack) }
+        }
     }
 
-    fun notifyAllPaused(listIndex: Int){
-        notifyAll { listener -> listener.notifyPaused(listIndex) }
+
+    fun notifyAllPaused(listIndex: Int, track: Track){
+        notifyAll { listener -> listener.notifyPaused(listIndex, track) }
     }
 
-    fun notifyStopped(listIndex: Int){
-        notifyAll { listener -> listener.notifyStopped(listIndex) }
+
+    fun notifyAllResumed(listIndex: Int, track: Track){
+        notifyAll { listener -> listener.notifyResumed(listIndex, track) }
+    }
+
+    fun notifyAllIdle(fromIndex: Int? = null){
+        if(fromIndex != null){
+            notifyAll { listener -> listener.notifyIdle(fromIndex) }
+        } else {
+            notifyAll { listener -> listener.notifyIdle() }
+        }
+    }
+
+    fun jumpTo(percentage: Int) {
+        if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
+            val newPosition = (percentage * mediaPlayer.duration) / 100
+            if(newPosition >= 0 && newPosition < mediaPlayer.duration){
+                mediaPlayer.seekTo(newPosition)
+            }
+        }
     }
 
     //TRACK QUEUE OBJECT

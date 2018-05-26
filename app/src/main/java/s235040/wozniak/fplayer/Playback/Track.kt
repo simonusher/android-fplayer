@@ -6,7 +6,7 @@ import s235040.wozniak.fplayer.Utils.StringUtils
 /**
  * Created by Szymon on 24.05.2018.
  */
-open class Track(val path: String, val title: String, val author: String, durationMilis: Int){
+open class Track(val path: String, val title: String, val author: String, val albumArtPath: String, durationMilis: Int){
     val duration: String = getDurationStringFromMilis(durationMilis)
     companion object {
         fun getDurationStringFromMilis(durationMilis: Int): String{

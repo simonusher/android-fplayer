@@ -15,12 +15,17 @@ import s235040.wozniak.fplayer.R
 import kotlinx.android.synthetic.main.activity_main.*
 import s235040.wozniak.fplayer.Application.FPlayerService
 import android.content.ServiceConnection
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.widget.SeekBar
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
 import s235040.wozniak.fplayer.Playback.Track
+import s235040.wozniak.fplayer.Utils.StringUtils
 
 
-class MainActivity : Activity(), TrackUpdateListener{
+class MainActivity : Activity(), TrackUpdateListener, SeekBar.OnSeekBarChangeListener {
+
     private lateinit var recyclerView: RecyclerView
     private lateinit var viewAdapter: RecyclerView.Adapter<*>
     private lateinit var viewManager: RecyclerView.LayoutManager
@@ -29,8 +34,53 @@ class MainActivity : Activity(), TrackUpdateListener{
     var isConnectedToService = false
     lateinit var service: FPlayerService
 
+    lateinit var handler: Handler
+
+    var interfaceUpdateDelayMs: Long = 50
+
+    var seekbarIsClicked = false
+
+    val interfaceUpdateThread: Runnable = object : Runnable {
+        override fun run() {
+            updateInterface(musicPlayer.getSongTimes())
+            handler.postDelayed(this, interfaceUpdateDelayMs)
+        }
+    }
+
+    private fun updateInterface(songTimes: Pair<Int, Int>) {
+        val currentPosionMilis = songTimes.first
+        val songDurationMulis = songTimes.second
+        if(currentPosionMilis != -1){
+            activity_main_tv_current_song_position.text = StringUtils.getDurationStringFromMilis(currentPosionMilis)
+            val currentPositionPercent: Int = (currentPosionMilis / songDurationMulis.toDouble() * 100).toInt()
+            if(!seekbarIsClicked){
+                activity_main_seekbar_song_position.progress = currentPositionPercent
+            }
+        } else {
+            activity_main_tv_current_song_position.text = "00:00"
+            if(!seekbarIsClicked){
+                activity_main_seekbar_song_position.progress = 0
+            }
+        }
+    }
+
+    override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+
+    }
+
+    override fun onStartTrackingTouch(p0: SeekBar?) {
+        seekbarIsClicked = true
+    }
+
+    override fun onStopTrackingTouch(seekbar: SeekBar) {
+        seekbarIsClicked = false
+        service.handleSeekbarChange(seekbar.progress)
+    }
+
+
     inner class MyServiceConnection: ServiceConnection {
         override fun onServiceDisconnected(componentName: ComponentName) {
+            bindToService()
             isConnectedToService = false
         }
 
@@ -46,6 +96,8 @@ class MainActivity : Activity(), TrackUpdateListener{
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         initializeControlButtons()
+        activity_main_seekbar_song_position.setOnSeekBarChangeListener(this)
+        handler = Handler(Looper.getMainLooper())
     }
 
     private fun initializeControlButtons() {
@@ -100,6 +152,8 @@ class MainActivity : Activity(), TrackUpdateListener{
     override fun onResume() {
         super.onResume()
         bindToService()
+        handler.removeCallbacks(interfaceUpdateThread)
+        handler.postDelayed(interfaceUpdateThread, interfaceUpdateDelayMs)
     }
 
     private fun bindToMusicPlayer() {
@@ -110,6 +164,7 @@ class MainActivity : Activity(), TrackUpdateListener{
         super.onPause()
         unbindFromService()
         unbindFromMusicPlayer()
+        handler.removeCallbacks(interfaceUpdateThread)
     }
 
     private fun unbindFromMusicPlayer() {
@@ -184,37 +239,54 @@ class MainActivity : Activity(), TrackUpdateListener{
         startActivity(aboutMeIntent)
     }
 
-    override fun notifyNowPlaying(listIndex: Int, track: Track) {
-        viewAdapter.notifyItemChanged(listIndex, true)
-        activity_main_btn_play.setImageResource(R.drawable.ic_pause)
-        fillTrackInfo(track)
-    }
-
     private fun fillTrackInfo(track: Track) {
         activity_main_tv_song_title.text = track.title
         activity_main_tv_song_author.text = track.author
         activity_main_tv_song_length.text = track.duration
     }
 
-    override fun notifyPaused(listIndex: Int) {
-        viewAdapter.notifyItemChanged(listIndex, false)
-        activity_main_btn_play.setImageResource(R.drawable.ic_play)
-    }
-
-    override fun notifyPlaying(listIndex: Int) {
-        viewAdapter.notifyItemChanged(listIndex, true)
-        activity_main_btn_play.setImageResource(R.drawable.ic_pause)
-    }
-
-    override fun notifyStopped(listIndex: Int) {
-        viewAdapter.notifyItemChanged(listIndex, false)
-        clearTrackInfo()
-        activity_main_btn_play.setImageResource(R.drawable.ic_play)
-    }
 
     private fun clearTrackInfo() {
         activity_main_tv_song_title.text = ""
         activity_main_tv_song_author.text = ""
-        activity_main_tv_song_length.text = ""
+        activity_main_tv_song_length.text = getString(R.string.songLengthPlaceholder)
+    }
+
+
+    override fun notifyCurrentlyPlayedSong(listIndex: Int, track: Track, isPlaying: Boolean) {
+        fillTrackInfo(track)
+        viewAdapter.notifyItemChanged(listIndex, isPlaying)
+        if(isPlaying){
+            activity_main_btn_play.setImageResource(R.drawable.ic_pause)
+        } else {
+            activity_main_btn_play.setImageResource(R.drawable.ic_play)
+        }
+    }
+
+    override fun notifySwitchedSong(oldListIndex: Int?, newListIndex: Int, newTrack: Track) {
+        if(oldListIndex != null && oldListIndex != newListIndex){
+            viewAdapter.notifyItemChanged(oldListIndex, false)
+        }
+        viewAdapter.notifyItemChanged(newListIndex, true)
+        fillTrackInfo(newTrack)
+        activity_main_btn_play.setImageResource(R.drawable.ic_pause)
+    }
+
+    override fun notifyPaused(listIndex: Int, track: Track) {
+        viewAdapter.notifyItemChanged(listIndex, false)
+        activity_main_btn_play.setImageResource(R.drawable.ic_play)
+    }
+
+    override fun notifyResumed(listIndex: Int, track: Track) {
+        viewAdapter.notifyItemChanged(listIndex, true)
+        activity_main_btn_play.setImageResource(R.drawable.ic_pause)
+    }
+
+    override fun notifyIdle(fromIndex: Int?) {
+        if(fromIndex != null){
+            viewAdapter.notifyItemChanged(fromIndex, false)
+        }
+        activity_main_btn_play.setImageResource(R.drawable.ic_play)
+        clearTrackInfo()
     }
 }

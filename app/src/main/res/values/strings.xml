@@ -1,8 +1,5 @@
 <resources>
     <string name="app_name">FPlayer</string>
-    <string name="songLengthPlaceholder">xx:yy</string>
-    <string name="songTitlePlaceholder">Lorem Ipsum</string>
-    <string name="songAuthorPlaceholder">Lorem Ipsum, Lorem Ipsum, Lorem Ipsum</string>
     <string name="about_me_text">About me</string>
     <string name="settings_text">Settings</string>
     <string name="myName">Szymon</string>
@@ -12,4 +9,10 @@
     <string name="channel_description">FPlayer main notification channel</string>
     <string name="channel_id">DEFAULT_CHANNEL</string>
     <string name="intent_type">INTENT_TYPE</string>
+    <string name="previous">Previous</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="next">Next</string>
+    <string name="songLengthPlaceholder">00:00</string>
+    <string name="noSongText">No song playing</string>
 </resources>
