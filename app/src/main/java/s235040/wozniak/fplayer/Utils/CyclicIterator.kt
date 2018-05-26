@@ -1,13 +1,13 @@
 package s235040.wozniak.fplayer.Utils
 
-class CyclicIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyIterator<T>{
-
+class CyclicIterator<T>(val list:List<T>, var currentIndex: Int = 0): MyIterator<T>{
+    override var dirty: Boolean = true
     override fun hasCurrent(): Boolean {
         return currentIndex >= 0 && currentIndex < list.size
     }
 
     override fun current(): T?{
-        return if(hasCurrent()){
+        return if(hasCurrent() && !dirty){
             list[currentIndex]
         } else {
             null
@@ -23,11 +23,16 @@ class CyclicIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyIterato
     }
 
     override fun next(): T {
-        currentIndex += 1
-        if(currentIndex >= list.size){
-            currentIndex = 0
+        return if(dirty){
+            dirty = false
+            current() as T
+        } else{
+            currentIndex += 1
+            if(currentIndex >= list.size){
+                currentIndex = 0
+            }
+            list[currentIndex]
         }
-        return list[currentIndex]
     }
 
     override fun nextIndex(): Int {
@@ -35,11 +40,16 @@ class CyclicIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyIterato
     }
 
     override fun previous(): T {
-        currentIndex += 1
-        if(currentIndex >= list.size){
-            currentIndex = 0
+        return if(dirty){
+            dirty = false
+            current() as T
+        } else{
+            currentIndex -= 1
+            if(currentIndex < 0){
+                currentIndex = list.size - 1
+            }
+            list[currentIndex]
         }
-        return list[currentIndex]
     }
 
     override fun previousIndex(): Int {

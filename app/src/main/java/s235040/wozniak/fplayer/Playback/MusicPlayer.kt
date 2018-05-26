@@ -4,6 +4,9 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
+import s235040.wozniak.fplayer.Utils.CyclicIterator
+import s235040.wozniak.fplayer.Utils.MyIterator
+import s235040.wozniak.fplayer.Utils.StandardIterator
 
 
 /**
@@ -50,6 +53,7 @@ object MusicPlayer {
             PlaybackState.PLAYING, PlaybackState.PAUSED -> {
                 val track = TrackQueue.getCurrentTrack()
                 TrackQueue.createPlaybackQueue(trackList.indexOf(track))
+                TrackQueue.iterator.dirty = false
             }
         }
         Log.d("currentTrack", TrackQueue.getCurrentTrack().toString())
@@ -65,12 +69,16 @@ object MusicPlayer {
             val track = TrackQueue.getCurrentTrack()
             if (track != null){
                 TrackQueue.createPlaybackQueue(trackList.indexOf(track))
+                if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
+                    TrackQueue.iterator.dirty = false
+                }
             }
         }
         when(playbackState){
             PlaybackState.PLAYING, PlaybackState.PAUSED -> {
                 val track = TrackQueue.getCurrentTrack()
                 TrackQueue.createPlaybackQueue(trackList.indexOf(track))
+                TrackQueue.iterator.dirty = false
             }
         }
         Log.d("currentTrack", TrackQueue.getCurrentTrack().toString())
@@ -291,57 +299,44 @@ object MusicPlayer {
 
     //TRACK QUEUE OBJECT
     object TrackQueue {
+        fun MutableList<Track>.cyclicIterator(): CyclicIterator<Track>{
+            return CyclicIterator(this)
+        }
+
+        fun MutableList<Track>.cyclicIterator(startIndex: Int): CyclicIterator<Track>{
+            return CyclicIterator(this, startIndex)
+        }
+
+        fun MutableList<Track>.standardIterator(): StandardIterator<Track>{
+            return StandardIterator(this)
+        }
+
+        fun MutableList<Track>.standardIterator(startIndex: Int): StandardIterator<Track>{
+            return StandardIterator(this, startIndex)
+        }
+
         var playbackQueue: MutableList<Track> = mutableListOf()
-        var iterator: ListIterator<Track> = playbackQueue.listIterator()
-        private var currentTrack: Track? = null
+        var iterator: MyIterator<Track> = playbackQueue.standardIterator()
 
         fun getCurrentTrack(): Track? {
-            return currentTrack
+            return iterator.current()
         }
 
         fun getNextTrack(): Track? {
-            currentTrack = if(iterator.hasNext()){
+            return if(iterator.hasNext()){
                 iterator.next()
             }
             else{
-                if(loopingType == LoopingType.ALL_TRACKS){
-                    createIterator()
-                    if(iterator.hasNext()){
-                        iterator.next()
-                    }
-                    else{
-                        null
-                    }
-                }
-                else{
-                    null
-                }
+                null
             }
-            Log.d("PREVIOUS_INDEX", iterator.previousIndex().toString())
-            Log.d("NEXT_INDEX", iterator.nextIndex().toString())
-            return currentTrack
         }
 
         fun getPreviousTrack(): Track? {
-            currentTrack = if(iterator.hasPrevious()){
+            return if(iterator.hasPrevious()){
                 iterator.previous()
             } else {
-                if(loopingType == LoopingType.ALL_TRACKS){
-                    createIterator(playbackQueue.size)
-                    iterator.previous()
-                }
-                else{
-                    if(iterator.hasNext()){
-                        iterator.next()
-                    }
-                    else{
-                        null
-                    }
-                }
+                null
             }
-            Log.d("PREVIOUS_INDEX", iterator.previousIndex().toString())
-            Log.d("NEXT_INDEX", iterator.nextIndex().toString())
-            return currentTrack
         }
 
         fun createPlaybackQueue(startIndex: Int) {
@@ -361,7 +356,7 @@ object MusicPlayer {
             if(startIndex >=0 && startIndex < trackList.size){
                 playbackQueue = mutableListOf(trackList[startIndex])
             } else if(!trackList.isEmpty()) {
-                throw IllegalArgumentException("Incorrect start index")
+                throw IllegalArgumentException("Incorrect start index $startIndex")
             }
         }
 
@@ -387,12 +382,19 @@ object MusicPlayer {
                 playbackQueue = tempList
                 createIterator()
             } else if(!trackList.isEmpty()) {
-                throw IllegalArgumentException("Incorrect start index")
+                throw IllegalArgumentException("Incorrect start index $startIndex")
             }
         }
 
         private fun createIterator(index: Int = 0) {
-            iterator = playbackQueue.listIterator(index)
+            iterator = when(loopingType){
+                LoopingType.ALL_TRACKS, LoopingType.ONE_TRACK -> {
+                    playbackQueue.cyclicIterator(index)
+                }
+                LoopingType.NO_LOOPING-> {
+                    playbackQueue.standardIterator(index)
+                }
+            }
         }
     }
 }

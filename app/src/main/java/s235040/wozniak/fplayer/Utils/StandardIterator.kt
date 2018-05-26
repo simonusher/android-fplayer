@@ -1,12 +1,13 @@
 package s235040.wozniak.fplayer.Utils
 
-class StandardIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyIterator<T>{
+class StandardIterator<T>(val list:List<T>, var currentIndex: Int = 0): MyIterator<T>{
+    override var dirty: Boolean = true
     override fun hasCurrent(): Boolean {
         return currentIndex >= 0 && currentIndex < list.size
     }
 
     override fun current(): T?{
-        return if(hasCurrent()){
+        return if(hasCurrent() && !dirty){
             list[currentIndex]
         } else {
             null
@@ -24,9 +25,13 @@ class StandardIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyItera
     }
 
     override fun next(): T {
-        if(hasNext()){
+        if(dirty){
+            dirty = false
+            return current() as T
+        }
+        else if(hasNext()){
             currentIndex += 1
-            return list[currentIndex]
+            return current() as T
         } else {
             throw IllegalStateException("No objects left to take")
         }
@@ -37,9 +42,13 @@ class StandardIterator<T>(val list:List<T>, var currentIndex: Int = -1): MyItera
     }
 
     override fun previous(): T {
-        if(hasPrevious()){
-            currentIndex -= 1
-            return list[currentIndex]
+        if(dirty){
+            dirty = false
+            return current() as T
+        }
+        else if(hasPrevious()){
+            currentIndex += 1
+            return current() as T
         } else {
             throw IllegalStateException("No objects left to take")
         }
