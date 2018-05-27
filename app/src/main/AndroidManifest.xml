@@ -3,6 +3,7 @@
     package="s235040.wozniak.fplayer">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
     <application
         android:name=".Application.FPlayerApplication"
         android:allowBackup="true"
@@ -11,10 +12,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <service android:name=".Application.FPlayerService">
+        <service android:name=".Application.FPlayerService"></service>
 
-        </service>
-        <activity android:name=".Activities.MainActivity"
+        <activity
+            android:name=".Activities.MainActivity"
             android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,7 +25,8 @@
         </activity>
         <activity android:name=".Activities.AboutMeActivity" />
         <activity android:name=".Activities.SettingsActivity" />
-        <activity android:name=".Activities.QueueActivity"></activity>
+        <activity android:name=".Activities.QueueActivity" />
+        <activity android:name=".Activities.EqualizerActivity"></activity>
     </application>
 
 </manifest>

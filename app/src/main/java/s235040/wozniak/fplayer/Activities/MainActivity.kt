@@ -15,6 +15,7 @@ import s235040.wozniak.fplayer.R
 import kotlinx.android.synthetic.main.activity_main.*
 import s235040.wozniak.fplayer.Application.FPlayerService
 import android.content.ServiceConnection
+import android.content.res.Configuration
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -57,7 +58,7 @@ class MainActivity : Activity(), TrackUpdateListener, SeekBar.OnSeekBarChangeLis
                 activity_main_seekbar_song_position.progress = currentPositionPercent
             }
         } else {
-            activity_main_tv_current_song_position.text = "00:00"
+            activity_main_tv_current_song_position.text = getString(R.string.songLengthPlaceholder)
             if(!seekbarIsClicked){
                 activity_main_seekbar_song_position.progress = 0
             }
@@ -247,7 +248,7 @@ class MainActivity : Activity(), TrackUpdateListener, SeekBar.OnSeekBarChangeLis
 
 
     private fun clearTrackInfo() {
-        activity_main_tv_song_title.text = ""
+        activity_main_tv_song_title.text = getString(R.string.noSongText)
         activity_main_tv_song_author.text = ""
         activity_main_tv_song_length.text = getString(R.string.songLengthPlaceholder)
     }

@@ -17,6 +17,7 @@ import android.opengl.ETC1.getHeight
 import android.opengl.ETC1.getWidth
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.session.MediaSession
 import android.support.v4.media.session.MediaSessionCompat
 
 
@@ -83,7 +84,7 @@ class FPlayerService: Service(), TrackUpdateListener {
         }
 
         val trackTitle = if(isIdle){
-            ""
+            getString(R.string.noSongText)
         } else {
             track?.title ?: lastNotificationTrack.title
         }
@@ -103,10 +104,11 @@ class FPlayerService: Service(), TrackUpdateListener {
                 .addAction(R.drawable.ic_next, getString(R.string.next), nextSongIntent)
                 .setContentTitle(trackTitle)
                 .setContentText(trackAuthor)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setStyle(MediaStyle().setShowActionsInCompactView(0, 1, 2))
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setContentIntent(activityIntent)
                 .setDeleteIntent(createDeleteIntent())
+
         if(track != null){
             if(track.albumArtPath != ""){
                 val bmOptions = BitmapFactory.Options()
@@ -240,11 +242,11 @@ class FPlayerService: Service(), TrackUpdateListener {
     }
 
     private fun handlePreviousSongButton() {
-        player.playPreviousSong()
+        player.handlePreviousSongButton()
     }
 
     private fun handleNextSongButton() {
-        player.playNextSong()
+        player.handleNextSongButton()
     }
 
     override fun onBind(intent: Intent): IBinder {

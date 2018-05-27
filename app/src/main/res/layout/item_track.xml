@@ -13,9 +13,9 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
         android:ellipsize="end"
+        android:maxLines="1"
         android:textColor="@android:color/white"
         android:textSize="30sp"
-        android:maxLines="1"
         app:layout_constraintEnd_toStartOf="@+id/item_track_tv_song_length"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

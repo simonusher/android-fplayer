@@ -4,6 +4,8 @@ import android.content.ContentUris
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Equalizer
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
@@ -52,6 +54,9 @@ object MusicPlayer {
     init {
         mediaPlayer.isLooping = false
     }
+
+    var equalizerPreset: Short? = null
+    var listOfBandLevels: MutableList<Short>? = null
 
     fun getSongTimes(): Pair<Int, Int> {
         return if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
@@ -258,6 +263,7 @@ object MusicPlayer {
     private fun startMediaPlayer(track: Track) {
         prepareMediaPlayer(track)
         mediaPlayer.start()
+        applyEqualizer()
     }
 
     private fun prepareMediaPlayer(track: Track) {
@@ -268,10 +274,47 @@ object MusicPlayer {
         mediaPlayer.prepare()
     }
 
+
+    fun updateEqualizer(presetIndex: Short, listOfBandLevels: MutableList<Short>){
+        equalizerPreset = presetIndex
+        this.listOfBandLevels = listOfBandLevels
+        applyEqualizer()
+    }
+
+    fun updateEqualizer(listOfBandLevels: MutableList<Short>){
+        this.listOfBandLevels = listOfBandLevels
+    }
+
+    private fun applyEqualizer() {
+        val equalizer = Equalizer(0, mediaPlayer.audioSessionId)
+        if(equalizerPreset != null){
+            equalizer.usePreset(equalizerPreset as Short)
+        }
+        if(listOfBandLevels != null){
+            val list = listOfBandLevels as MutableList
+            for (i in 0 until  list.size){
+                val equalizerBandIndex = i.toShort()
+                equalizer.setBandLevel(equalizerBandIndex, list[i])
+            }
+        }
+        equalizer.enabled = true
+    }
+
+    fun getEqualizerPresetAndBandLevels(): Pair<Short?, MutableList<Short>?>{
+        return Pair(equalizerPreset, listOfBandLevels)
+    }
+
+    fun getMediaPlayerSessionId(): Int? {
+        return if(playbackState != PlaybackState.IDLE){
+            mediaPlayer.audioSessionId
+        } else {
+            null
+        }
+    }
+
     fun readTracks(context: Context){
         val contentResolver = context.contentResolver
         val uri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val albumUri = android.provider.MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI
         val cursor = contentResolver.query(uri, null, null, null, android.provider.MediaStore.Audio.Media.TITLE + " ASC")
 
         if (cursor == null) {
@@ -300,7 +343,7 @@ object MusicPlayer {
                 var path = ""
                 if (cursorAlbums.moveToFirst()) {
                     val columnIndex = cursorAlbums.getColumnIndex(android.provider.MediaStore.Audio.Albums.ALBUM_ART)
-                    path = cursorAlbums.getString(columnIndex)
+                    path = cursorAlbums.getString(columnIndex) ?: ""
                     Log.d("ALBUM ART PATH", path)
                 }
                 cursorAlbums.close()
@@ -401,6 +444,22 @@ object MusicPlayer {
             if(newPosition >= 0 && newPosition < mediaPlayer.duration){
                 mediaPlayer.seekTo(newPosition)
             }
+        }
+    }
+
+    fun handlePreviousSongButton() {
+        if(playbackState == PlaybackState.IDLE){
+            startPlaybackFrom(0)
+        } else {
+            playPreviousSong()
+        }
+    }
+
+    fun handleNextSongButton() {
+        if(playbackState == PlaybackState.IDLE){
+            startPlaybackFrom(0)
+        } else {
+            playNextSong()
         }
     }
 
