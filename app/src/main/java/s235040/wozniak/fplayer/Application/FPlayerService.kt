@@ -13,12 +13,7 @@ import android.os.Build
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
 import s235040.wozniak.fplayer.Playback.Track
 import s235040.wozniak.fplayer.R
-import android.opengl.ETC1.getHeight
-import android.opengl.ETC1.getWidth
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.session.MediaSession
-import android.support.v4.media.session.MediaSessionCompat
 
 
 class FPlayerService: Service(), TrackUpdateListener {

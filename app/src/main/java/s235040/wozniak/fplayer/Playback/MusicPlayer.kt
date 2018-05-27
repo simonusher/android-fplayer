@@ -1,22 +1,13 @@
 package s235040.wozniak.fplayer.Playback
 
-import android.content.ContentUris
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.media.MediaPlayer
-import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
-import android.os.ParcelFileDescriptor
 import android.util.Log
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
 import s235040.wozniak.fplayer.Utils.CyclicIterator
 import s235040.wozniak.fplayer.Utils.MyIterator
 import s235040.wozniak.fplayer.Utils.StandardIterator
-import java.io.FileDescriptor
-import android.provider.MediaStore
-
-
-
 
 /**
  * Created by Szymon on 24.05.2018.
@@ -37,7 +28,7 @@ object MusicPlayer {
     enum class LoopingType {
         NO_LOOPING,
         ONE_TRACK,
-        ALL_TRACKS
+        ALL_TRACKS;
     }
 
     val myListeners: MutableList<TrackUpdateListener> = mutableListOf()
@@ -282,14 +273,18 @@ object MusicPlayer {
     }
 
     private fun applyEqualizer() {
-        equalizer.enabled = false
-        equalizer.release()
-        equalizer = Equalizer(0, mediaPlayer.audioSessionId)
-        if (equalizerPreset != null) {
-            equalizer.usePreset(equalizerPreset as Short)
-        }
+        try {
+            equalizer.enabled = false
+            equalizer.release()
+            equalizer = Equalizer(0, mediaPlayer.audioSessionId)
+            if (equalizerPreset != null) {
+                equalizer.usePreset(equalizerPreset as Short)
+            }
 
-        equalizer.enabled = true
+            equalizer.enabled = true
+        } catch (e: IllegalStateException){
+
+        }
     }
 
     fun getEqualizerPresetIndex(): Short?{
