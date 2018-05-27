@@ -56,7 +56,7 @@ object MusicPlayer {
     }
 
     var equalizerPreset: Short? = null
-    var listOfBandLevels: MutableList<Short>? = null
+    var equalizer: Equalizer = Equalizer(0, mediaPlayer.audioSessionId)
 
     fun getSongTimes(): Pair<Int, Int> {
         return if(playbackState == PlaybackState.PLAYING || playbackState == PlaybackState.PAUSED){
@@ -274,34 +274,26 @@ object MusicPlayer {
         mediaPlayer.prepare()
     }
 
-
-    fun updateEqualizer(presetIndex: Short, listOfBandLevels: MutableList<Short>){
-        equalizerPreset = presetIndex
-        this.listOfBandLevels = listOfBandLevels
-        applyEqualizer()
-    }
-
-    fun updateEqualizer(listOfBandLevels: MutableList<Short>){
-        this.listOfBandLevels = listOfBandLevels
+    fun updateEqualizer(presetIndex: Short){
+        if(equalizerPreset != presetIndex){
+            this.equalizerPreset = presetIndex
+            applyEqualizer()
+        }
     }
 
     private fun applyEqualizer() {
-        val equalizer = Equalizer(0, mediaPlayer.audioSessionId)
-        if(equalizerPreset != null){
+        equalizer.enabled = false
+        equalizer.release()
+        equalizer = Equalizer(0, mediaPlayer.audioSessionId)
+        if (equalizerPreset != null) {
             equalizer.usePreset(equalizerPreset as Short)
         }
-        if(listOfBandLevels != null){
-            val list = listOfBandLevels as MutableList
-            for (i in 0 until  list.size){
-                val equalizerBandIndex = i.toShort()
-                equalizer.setBandLevel(equalizerBandIndex, list[i])
-            }
-        }
+
         equalizer.enabled = true
     }
 
-    fun getEqualizerPresetAndBandLevels(): Pair<Short?, MutableList<Short>?>{
-        return Pair(equalizerPreset, listOfBandLevels)
+    fun getEqualizerPresetIndex(): Short?{
+        return equalizerPreset
     }
 
     fun getMediaPlayerSessionId(): Int? {
