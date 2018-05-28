@@ -1,5 +1,6 @@
 package s235040.wozniak.fplayer.Activities
 
+import android.Manifest
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
@@ -22,6 +23,7 @@ import android.os.Looper
 import android.widget.SeekBar
 import s235040.wozniak.fplayer.Controllers.TrackUpdateListener
 import s235040.wozniak.fplayer.Playback.Track
+import s235040.wozniak.fplayer.Utils.PermissionUtils
 import s235040.wozniak.fplayer.Utils.StringUtils
 
 
@@ -101,6 +103,13 @@ class MainActivity : Activity(), TrackUpdateListener, SeekBar.OnSeekBarChangeLis
         handler = Handler(Looper.getMainLooper())
     }
 
+
+    private fun acquirePermissions(): Boolean {
+        return PermissionUtils.acquirePermission(this, Manifest.permission.READ_EXTERNAL_STORAGE,
+                PermissionUtils.CODE_READ_EXTERNAL_STORAGE)
+    }
+
+
     private fun initializeControlButtons() {
         initializeLoopingButton()
         initializeShuffleButton()
@@ -152,6 +161,9 @@ class MainActivity : Activity(), TrackUpdateListener, SeekBar.OnSeekBarChangeLis
 
     override fun onResume() {
         super.onResume()
+        while(!acquirePermissions()){
+            acquirePermissions()
+        }
         bindToService()
         handler.removeCallbacks(interfaceUpdateThread)
         handler.postDelayed(interfaceUpdateThread, interfaceUpdateDelayMs)

@@ -41,7 +41,6 @@ class FPlayerService: Service(), TrackUpdateListener {
     }
 
     override fun onCreate() {
-        acquirePermissions()
         initializeMusicPlayer()
         createNotificationChannel()
         startWithNotification()
@@ -207,13 +206,6 @@ class FPlayerService: Service(), TrackUpdateListener {
         }
     }
 
-
-
-    private fun acquirePermissions(): Boolean {
-        return PermissionUtils.acquirePermission(this, Manifest.permission.READ_EXTERNAL_STORAGE,
-                PermissionUtils.CODE_READ_EXTERNAL_STORAGE)
-    }
-
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         val intentType = intent.getIntExtra(INTENT_TYPE_NAME, INTENT_TYPE_UNDEFINED)
         when(intentType){
@@ -257,9 +249,12 @@ class FPlayerService: Service(), TrackUpdateListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = getString(R.string.channel_name)
             val description = getString(R.string.channel_description)
-            val importance = NotificationManager.IMPORTANCE_HIGH
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
             val channel = NotificationChannel(CHANNEL_ID, name, importance)
             channel.description = description
+            channel.setSound(null, null)
+            channel.enableLights(false)
+            channel.enableVibration(false)
             notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }

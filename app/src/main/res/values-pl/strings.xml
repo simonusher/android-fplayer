@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FPlayer</string>
+    <string name="about_me_text">O mnie</string>
+    <string name="settings_text">Ustawienia</string>
+    <string name="queue_text">Kolejka</string>
+    <string name="channel_name">Kanał FPlayer</string>
+    <string name="channel_description">Główny kanał powiadomień FPlayer</string>
+    <string name="previous">Poprzedni</string>
+    <string name="play">Start</string>
+    <string name="pause">Pauza</string>
+    <string name="next">Następny</string>
+    <string name="noSongText">Brak utworu</string>
+    <string name="preset">Typ</string>
+</resources>

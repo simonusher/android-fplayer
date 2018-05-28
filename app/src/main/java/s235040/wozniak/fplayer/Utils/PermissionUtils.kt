@@ -1,9 +1,11 @@
 package s235040.wozniak.fplayer.Utils
 
 import android.app.Activity
+import android.app.Service
 import android.content.Context
 import android.content.pm.PackageManager
 import android.support.v4.app.ActivityCompat
+import android.support.v4.app.ServiceCompat
 import android.support.v4.content.ContextCompat
 
 /**
@@ -12,7 +14,7 @@ import android.support.v4.content.ContextCompat
 object PermissionUtils {
     val CODE_READ_EXTERNAL_STORAGE: Int = 123
     fun acquirePermission(context: Context, permission: String, requestCode: Int): Boolean {
-        if (!hasPermission(context, permission)){
+        if (!hasPermission(context, permission)) {
             ActivityCompat.requestPermissions(context as Activity, arrayOf(permission), requestCode)
             return hasPermission(context, permission)
         }
