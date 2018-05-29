@@ -92,7 +92,7 @@ class FPlayerService: Service(), TrackUpdateListener {
         notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
         notificationBuilder
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSmallIcon(R.drawable.ic_music)
+                .setSmallIcon(R.drawable.ic_headset)
                 .addAction(R.drawable.ic_previous, getString(R.string.previous), previousSongIntent)
                 .addAction(icon, btnTitle, playPauseIntent)
                 .addAction(R.drawable.ic_next, getString(R.string.next), nextSongIntent)
