@@ -101,12 +101,19 @@ class EqualizerActivity : Activity(), AdapterView.OnItemSelectedListener {
 
     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
         val presetIndex = position.toShort()
+        helperEqualizer.usePreset(presetIndex)
         updateSeekBars()
         updateEqualizerPreset(presetIndex)
     }
 
     private fun updateSeekBars() {
-
+        val numberOfFrequencyBands = helperEqualizer.numberOfBands
+        for(i in 0 until numberOfFrequencyBands){
+            val equalizerBandIndex = i.toShort()
+            val seekbar = findViewById<SeekBar>(i)
+            val bandLevel = helperEqualizer.getBandLevel(equalizerBandIndex)
+            seekbar.progress = bandLevel - lowerEqualizerBandLevel
+        }
     }
 
     private fun updateEqualizerPreset(presetIndex: Short){
